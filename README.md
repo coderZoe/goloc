@@ -1,5 +1,4 @@
 <div align="center">
-
 <img src="extension/public/icons/icon128.png" alt="GoLoc Logo" width="120" />
 
 # GoLoc
@@ -14,6 +13,8 @@
 [![Chrome Extension](https://img.shields.io/badge/Chrome-Extension-4285F4?style=flat-square&logo=googlechrome)](https://chrome.google.com/webstore)
 
 [English](#english) | [中文](#中文)
+
+</div>
 
 ---
 
@@ -262,12 +263,6 @@ services:
       - CACHE_TTL=604800
       # Max repository size limit in MB
       - MAX_REPO_SIZE_MB=100
-    volumes:
-      # Optional: mount data directory for persistence
-      - goloc_data:/root/data
-
-volumes:
-  goloc_data:
 ```
 
 Start the service:
@@ -366,10 +361,3 @@ Contributions are welcome! Please feel free to submit a Pull Request.
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
----
-
-<div align="center">
-
-Made with ❤️ by [Your Name](https://github.com/your-username)
-
-</div>
