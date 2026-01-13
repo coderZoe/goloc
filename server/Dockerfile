@@ -1,7 +1,9 @@
 # 第一阶段：编译
-FROM golang:1.21-alpine AS builder
+FROM golang:1.25-alpine AS builder
 
 WORKDIR /app
+# 设置 Go 代理（解决网络问题）
+ENV GOPROXY=https://goproxy.cn,https://goproxy.io,direct
 # 复制 go.mod 和 go.sum 缓存下载
 COPY go.mod go.sum ./
 RUN go mod download
