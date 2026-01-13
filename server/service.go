@@ -1,0 +1,151 @@
+package main
+
+import (
+	"context"
+	"encoding/json"
+	"fmt"
+	"net/http"
+	"os"
+	"os/exec"
+	"path/filepath"
+	"strings"
+
+	"github.com/google/uuid"
+	"github.com/hhatto/gocloc"
+)
+
+// RepoMeta contains repository metadata from GitHub API
+type RepoMeta struct {
+	Size          int64  `json:"size"` // KB
+	DefaultBranch string `json:"default_branch"`
+}
+
+func FetchRepoStats(ctx context.Context, repoURL string, branch string) ([]FileStat, error) {
+	cfg := appConfig.Get()
+
+	// Get repository metadata (size check + default branch)
+	meta, err := getRepoMeta(ctx, repoURL, cfg.GithubToken)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get repo metadata: %v", err)
+	}
+
+	// Check repo size
+	repoSizeMB := meta.Size / 1024
+	if repoSizeMB > cfg.MaxRepoSizeMB {
+		return nil, fmt.Errorf("repo too large: %d MB exceeds limit %d MB", repoSizeMB, cfg.MaxRepoSizeMB)
+	}
+	fmt.Printf("[Pre-Check] Passed. Size: %d MB, Default branch: %s\n", repoSizeMB, meta.DefaultBranch)
+
+	// Use default branch from API if branch not specified
+	targetBranch := branch
+	if targetBranch == "" {
+		targetBranch = meta.DefaultBranch
+		fmt.Printf("[Branch] Using default branch from API: %s\n", targetBranch)
+	} else {
+		fmt.Printf("[Branch] Using specified branch: %s\n", targetBranch)
+	}
+
+	taskID := uuid.New().String()
+	tmpDir := filepath.Join(os.TempDir(), "goloc_repo", taskID)
+	defer os.RemoveAll(tmpDir)
+
+	// Clone repository
+	if err := cloneRepo(ctx, repoURL, targetBranch, tmpDir); err != nil {
+		return nil, err
+	}
+	fmt.Printf("[Process] Successfully cloned branch: %s\n", targetBranch)
+
+	languages := gocloc.NewDefinedLanguages()
+	options := gocloc.NewClocOptions()
+	processor := gocloc.NewProcessor(languages, options)
+	result, err := processor.Analyze([]string{tmpDir})
+	if err != nil {
+		return nil, fmt.Errorf("gocloc analysis failed: %v", err)
+	}
+
+	var stats []FileStat
+	for _, lang := range result.Languages {
+		for _, filePath := range lang.Files {
+			clocFile, ok := result.Files[filePath]
+			if !ok {
+				continue
+			}
+			relPath, err := filepath.Rel(tmpDir, filePath)
+			if err != nil {
+				relPath = filePath
+			}
+			stats = append(stats, FileStat{
+				Path:     relPath,
+				Language: lang.Name,
+				Code:     int(clocFile.Code),
+				Comments: int(clocFile.Comments),
+				Blanks:   int(clocFile.Blanks),
+			})
+		}
+	}
+	fmt.Printf("[Process] Analysis done. Files found: %d\n", len(stats))
+	return stats, nil
+}
+
+// cloneRepo clones a repository with the specified branch
+func cloneRepo(ctx context.Context, repoURL string, branch string, tmpDir string) error {
+	args := []string{"clone", "--depth=1", "--single-branch"}
+	if branch != "" {
+		args = append(args, "--branch", branch)
+	}
+	args = append(args, repoURL, tmpDir)
+
+	fmt.Printf("[Process] Cloning %s (branch: %s) to %s...\n", repoURL, branch, tmpDir)
+
+	cmd := exec.CommandContext(ctx, "git", args...)
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("git clone failed: %s, output: %s", err, strings.TrimSpace(string(out)))
+	}
+	return nil
+}
+
+// getRepoMeta fetches repository metadata from GitHub API
+func getRepoMeta(ctx context.Context, repoURL string, token string) (*RepoMeta, error) {
+	trimmed := strings.TrimSuffix(repoURL, ".git")
+	parts := strings.Split(trimmed, "/")
+	if len(parts) < 2 {
+		return nil, fmt.Errorf("invalid github url")
+	}
+	repo := parts[len(parts)-1]
+	owner := parts[len(parts)-2]
+
+	apiURL := fmt.Sprintf("https://api.github.com/repos/%s/%s", owner, repo)
+	req, err := http.NewRequestWithContext(ctx, "GET", apiURL, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	if token != "" {
+		req.Header.Set("Authorization", "Bearer "+token)
+	}
+	req.Header.Set("Accept", "application/vnd.github.v3+json")
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("api network error: %v", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("github api error: %s", resp.Status)
+	}
+
+	var meta RepoMeta
+	if err := json.NewDecoder(resp.Body).Decode(&meta); err != nil {
+		return nil, fmt.Errorf("failed to decode api response: %v", err)
+	}
+
+	tokenStatus := "Anonymous"
+	if token != "" {
+		tokenStatus = "Authenticated"
+	}
+	fmt.Printf("[API] %s - Size: %d KB, Default branch: %s\n", tokenStatus, meta.Size, meta.DefaultBranch)
+
+	return &meta, nil
+}

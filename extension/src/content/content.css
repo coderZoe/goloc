@@ -1,0 +1,73 @@
+/* Content Script 专用样式 - 不使用全局Tailwind base样式 */
+/* 只包含组件需要的最小样式 */
+
+/* 自定义滚动条样式 */
+.goloc-scrollbar::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+}
+
+.goloc-scrollbar::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.goloc-scrollbar::-webkit-scrollbar-thumb {
+    background: rgba(156, 163, 175, 0.4);
+    border-radius: 4px;
+}
+
+.goloc-scrollbar::-webkit-scrollbar-thumb:hover {
+    background: rgba(156, 163, 175, 0.6);
+}
+
+.dark .goloc-scrollbar::-webkit-scrollbar-thumb {
+    background: rgba(75, 85, 99, 0.6);
+}
+
+.dark .goloc-scrollbar::-webkit-scrollbar-thumb:hover {
+    background: rgba(75, 85, 99, 0.8);
+}
+
+/* 确保content script注入的元素不影响页面布局 */
+#goloc-root {
+    all: initial;
+    position: fixed !important;
+    top: 0 !important;
+    left: 0 !important;
+    width: 100% !important;
+    height: 100% !important;
+    pointer-events: none !important;
+    z-index: 2147483647 !important;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif !important;
+}
+
+#goloc-root * {
+    box-sizing: border-box !important;
+}
+
+/* 悬浮按钮和面板容器需要接收鼠标事件 */
+.goloc-fab-container,
+.goloc-panel-container {
+    pointer-events: auto !important;
+}
+
+/* 动画 */
+@keyframes goloc-fade-in {
+    from {
+        opacity: 0;
+        transform: scale(0.95);
+    }
+
+    to {
+        opacity: 1;
+        transform: scale(1);
+    }
+}
+
+.goloc-panel {
+    animation: goloc-fade-in 0.2s ease-out;
+}
+
+.goloc-fab {
+    animation: goloc-fade-in 0.3s ease-out;
+}
