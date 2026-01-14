@@ -24,3 +24,18 @@ type Node struct {
 	Children map[string]*Node `json:"children"`
 }
 
+// Response 统一API响应结构
+type Response struct {
+	Code    int         `json:"code"`    // 响应状态码: 0 表示成功, 非0表示失败
+	Data    interface{} `json:"data"`    // 响应数据
+	Message string      `json:"message"` // 响应消息
+}
+
+// AnalyzeResult 分析结果数据结构
+type AnalyzeResult struct {
+	Source    string `json:"source"`
+	Repo      string `json:"repo"`
+	Branch    string `json:"branch"`
+	Timestamp int64  `json:"timestamp"`
+	Data      *Node  `json:"data"`
+}

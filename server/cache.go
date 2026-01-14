@@ -69,3 +69,10 @@ func (c *SafeCache) Get(key string) ([]FileStat, bool) {
 
 	return item.value, true
 }
+
+// Clear 清空所有缓存
+func (c *SafeCache) Clear() {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.cache = make(map[string]*CacheItem)
+}

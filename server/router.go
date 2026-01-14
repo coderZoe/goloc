@@ -20,9 +20,10 @@ func recoveryMiddleware(next http.Handler) http.Handler {
 				w.Header().Set("Content-Type", "application/json")
 				w.WriteHeader(http.StatusInternalServerError)
 
-				json.NewEncoder(w).Encode(map[string]interface{}{
-					"error": "Internal Server Error",
-					"msg":   fmt.Sprintf("Service panic: %v", err),
+				json.NewEncoder(w).Encode(Response{
+					Code:    500,
+					Message: fmt.Sprintf("Internal Server Error: %v", err),
+					Data:    nil,
 				})
 			}
 		}()
@@ -50,30 +51,50 @@ func handleConfig(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 
 	if r.Method == http.MethodGet {
-		json.NewEncoder(w).Encode(appConfig.Get())
+		json.NewEncoder(w).Encode(Response{
+			Code:    0,
+			Message: "success",
+			Data:    appConfig.Get(),
+		})
 		return
 	}
 
 	if r.Method == http.MethodPost {
 		var newCfg Config
 		if err := json.NewDecoder(r.Body).Decode(&newCfg); err != nil {
-			http.Error(w, "Invalid JSON", http.StatusBadRequest)
+			json.NewEncoder(w).Encode(Response{
+				Code:    400,
+				Message: "Invalid JSON: " + err.Error(),
+				Data:    nil,
+			})
 			return
 		}
 		appConfig.Update(newCfg)
 
-		json.NewEncoder(w).Encode(appConfig.Get())
+		json.NewEncoder(w).Encode(Response{
+			Code:    0,
+			Message: "success",
+			Data:    appConfig.Get(),
+		})
 		return
 	}
 
-	http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+	json.NewEncoder(w).Encode(Response{
+		Code:    405,
+		Message: "Method not allowed",
+		Data:    nil,
+	})
 }
 
 func handleAnalyze(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 
 	if r.Method != http.MethodPost {
-		http.Error(w, "Only POST allowed", http.StatusMethodNotAllowed)
+		json.NewEncoder(w).Encode(Response{
+			Code:    405,
+			Message: "Only POST allowed",
+			Data:    nil,
+		})
 		return
 	}
 
@@ -84,17 +105,24 @@ func handleAnalyze(w http.ResponseWriter, r *http.Request) {
 	}
 	var req RequestPayload
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, "Invalid JSON", http.StatusBadRequest)
+		json.NewEncoder(w).Encode(Response{
+			Code:    400,
+			Message: "Invalid JSON: " + err.Error(),
+			Data:    nil,
+		})
 		return
 	}
 
 	if req.RepoURL == "" {
-		http.Error(w, "repo_url is required", http.StatusBadRequest)
+		json.NewEncoder(w).Encode(Response{
+			Code:    400,
+			Message: "repo_url is required",
+			Data:    nil,
+		})
 		return
 	}
 
 	cacheKey := fmt.Sprintf("%s|%s", req.RepoURL, req.Branch)
-
 	var files []FileStat
 	var source string
 
@@ -112,29 +140,47 @@ func handleAnalyze(w http.ResponseWriter, r *http.Request) {
 		var err error
 		files, err = FetchRepoStats(ctx, req.RepoURL, req.Branch)
 		if err != nil {
-			http.Error(w, fmt.Sprintf("Analysis failed: %v", err), http.StatusInternalServerError)
+			json.NewEncoder(w).Encode(Response{
+				Code:    500,
+				Message: "Analysis failed: " + err.Error(),
+				Data:    nil,
+			})
 			return
 		}
 
 		cache.Set(cacheKey, files, appConfig.Get().CacheTTL)
 	}
 
+	// 根据当前配置过滤文件（缓存的是完整数据）
+	cfg := appConfig.Get()
+	filteredFiles := make([]FileStat, 0, len(files))
+	for _, f := range files {
+		if ShouldIncludeLanguage(f.Language, cfg.IncludeDataFiles, cfg.IncludeDocumentation) {
+			filteredFiles = append(filteredFiles, f)
+		}
+	}
+	fmt.Printf("[Filter] Applied language filter: %d -> %d files\n", len(files), len(filteredFiles))
+
 	depth := req.MaxDepth
 	if depth <= 0 {
-		depth = appConfig.Get().DefaultDepth
+		depth = cfg.DefaultDepth
 	}
 	projectName := extractProjectName(req.RepoURL)
-	treeRoot := BuildTree(files, depth, projectName)
+	treeRoot := BuildTree(filteredFiles, depth, projectName)
 
-	resp := map[string]interface{}{
-		"source":    source,
-		"repo":      req.RepoURL,
-		"branch":    req.Branch,
-		"timestamp": time.Now().Unix(),
-		"data":      treeRoot,
+	result := AnalyzeResult{
+		Source:    source,
+		Repo:      req.RepoURL,
+		Branch:    req.Branch,
+		Timestamp: time.Now().Unix(),
+		Data:      treeRoot,
 	}
 
-	json.NewEncoder(w).Encode(resp)
+	json.NewEncoder(w).Encode(Response{
+		Code:    0,
+		Message: "success",
+		Data:    result,
+	})
 }
 
 func extractProjectName(repoURL string) string {

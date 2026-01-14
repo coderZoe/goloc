@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"strings"
 
 	"github.com/google/uuid"
@@ -18,6 +19,31 @@ import (
 type RepoMeta struct {
 	Size          int64  `json:"size"` // KB
 	DefaultBranch string `json:"default_branch"`
+}
+
+// buildExcludeDirRegex 构建排除目录的正则表达式
+func buildExcludeDirRegex(excludeDirs []string) *regexp.Regexp {
+	if len(excludeDirs) == 0 {
+		return nil
+	}
+
+	// 对每个目录名进行正则转义，然后用 | 连接
+	var patterns []string
+	for _, dir := range excludeDirs {
+		// 转义特殊字符（如 .idea 中的点）
+		escaped := regexp.QuoteMeta(dir)
+		patterns = append(patterns, escaped)
+	}
+
+	// 构建正则：匹配目录名
+	// 使用 (^|/) 确保匹配的是完整目录名，而不是部分匹配
+	pattern := fmt.Sprintf("(^|[\\/])(%s)([\\/]|$)", strings.Join(patterns, "|"))
+	re, err := regexp.Compile(pattern)
+	if err != nil {
+		fmt.Printf("[Warning] Failed to compile exclude regex: %v\n", err)
+		return nil
+	}
+	return re
 }
 
 func FetchRepoStats(ctx context.Context, repoURL string, branch string) ([]FileStat, error) {
@@ -57,12 +83,24 @@ func FetchRepoStats(ctx context.Context, repoURL string, branch string) ([]FileS
 
 	languages := gocloc.NewDefinedLanguages()
 	options := gocloc.NewClocOptions()
+
+	// 设置排除目录
+	if len(cfg.ExcludeDirs) > 0 {
+		excludeRegex := buildExcludeDirRegex(cfg.ExcludeDirs)
+		if excludeRegex != nil {
+			options.ReNotMatchDir = excludeRegex
+			fmt.Printf("[Filter] Excluding directories: %v\n", cfg.ExcludeDirs)
+		}
+	}
+
 	processor := gocloc.NewProcessor(languages, options)
 	result, err := processor.Analyze([]string{tmpDir})
 	if err != nil {
 		return nil, fmt.Errorf("gocloc analysis failed: %v", err)
 	}
 
+	// 返回所有文件，不在此处过滤
+	// 缓存完整数据，过滤在 router.go 中根据当前配置进行
 	var stats []FileStat
 	for _, lang := range result.Languages {
 		for _, filePath := range lang.Files {
@@ -83,7 +121,7 @@ func FetchRepoStats(ctx context.Context, repoURL string, branch string) ([]FileS
 			})
 		}
 	}
-	fmt.Printf("[Process] Analysis done. Files found: %d\n", len(stats))
+	fmt.Printf("[Process] Analysis done. Total files: %d\n", len(stats))
 	return stats, nil
 }
 
