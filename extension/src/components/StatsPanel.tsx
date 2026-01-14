@@ -1,13 +1,24 @@
 import { useState, useRef, useEffect } from 'react';
 import { useGoLocStore } from '../store';
-import { X, ChevronDown, ChevronUp, Sun, Moon, Github } from 'lucide-react';
+import { X, ChevronDown, ChevronUp, Sun, Moon, Github, Loader2, AlertCircle, RefreshCw } from 'lucide-react';
 import { OverviewStats } from './OverviewStats';
 import { LanguageStats } from './LanguageStats';
 import { DirectoryTree } from './DirectoryTree';
 import { calculateLanguageStats } from '../utils/stats';
 
 export function StatsPanel({ onClose }: { onClose?: () => void }) {
-    const { result, effectiveTheme, setPanelExpanded, setTheme, theme, panelWidth, setPanelWidth } = useGoLocStore();
+    const {
+        result,
+        effectiveTheme,
+        setPanelExpanded,
+        setTheme,
+        theme,
+        panelWidth,
+        setPanelWidth,
+        status,
+        error,
+        reset
+    } = useGoLocStore();
     const [activeTab, setActiveTab] = useState<'overview' | 'languages' | 'tree'>('overview');
     const [isMinimized, setIsMinimized] = useState(false);
     const [isResizing, setIsResizing] = useState(false);
@@ -21,6 +32,12 @@ export function StatsPanel({ onClose }: { onClose?: () => void }) {
         } else {
             setPanelExpanded(false);
         }
+    };
+
+    const handleRetry = () => {
+        // 重置状态并关闭面板，用户可以重新点击按钮
+        reset();
+        handleClose();
     };
 
     // 处理调整大小
@@ -48,9 +65,13 @@ export function StatsPanel({ onClose }: { onClose?: () => void }) {
         };
     }, [isResizing]);
 
-    if (!result) return null;
+    // 如果正在载入或有错误，也要显示面板
+    const isLoading = status === 'loading';
+    const hasError = status === 'error';
+    const hasData = result !== null;
 
-    const languages = calculateLanguageStats(result.data);
+    // 计算语言统计（只在有数据时）
+    const languages = hasData ? calculateLanguageStats(result.data) : [];
 
     const tabs = [
         { id: 'overview' as const, label: '概览' },
@@ -99,16 +120,39 @@ export function StatsPanel({ onClose }: { onClose?: () => void }) {
             >
                 <div className="flex items-center gap-2 min-w-0 flex-1">
                     <div className={`p-1.5 rounded-lg ${isDark ? 'bg-blue-500/10' : 'bg-blue-50'}`}>
-                        <Github className={`w-4 h-4 flex-shrink-0 ${isDark ? 'text-blue-400' : 'text-blue-500'}`} />
+                        {isLoading ? (
+                            <Loader2 className={`w-4 h-4 flex-shrink-0 animate-spin ${isDark ? 'text-blue-400' : 'text-blue-500'}`} />
+                        ) : hasError ? (
+                            <AlertCircle className={`w-4 h-4 flex-shrink-0 ${isDark ? 'text-red-400' : 'text-red-500'}`} />
+                        ) : (
+                            <Github className={`w-4 h-4 flex-shrink-0 ${isDark ? 'text-blue-400' : 'text-blue-500'}`} />
+                        )}
                     </div>
                     <div className="min-w-0 flex-1">
                         <h2 className={`font-bold text-sm truncate ${isDark ? 'text-white' : 'text-gray-900'}`}>
-                            {result.repo.split('/').pop() || 'Repository'}
+                            {isLoading
+                                ? '正在分析...'
+                                : hasError
+                                    ? '分析失败'
+                                    : hasData
+                                        ? (result.repo.split('/').pop() || 'Repository')
+                                        : 'GoLoc 统计'
+                            }
                         </h2>
                         <p className={`text-xs ${isDark ? 'text-gray-500' : 'text-gray-500'}`}>
-                            <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium ${isDark ? 'bg-gray-800 text-gray-400' : 'bg-gray-100 text-gray-600'}`}>
-                                {result.branch}
-                            </span>
+                            {isLoading ? (
+                                <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium ${isDark ? 'bg-blue-900/30 text-blue-400' : 'bg-blue-50 text-blue-600'}`}>
+                                    请稍候...
+                                </span>
+                            ) : hasError ? (
+                                <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium ${isDark ? 'bg-red-900/30 text-red-400' : 'bg-red-50 text-red-600'}`}>
+                                    发生错误
+                                </span>
+                            ) : hasData ? (
+                                <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium ${isDark ? 'bg-gray-800 text-gray-400' : 'bg-gray-100 text-gray-600'}`}>
+                                    {result.branch}
+                                </span>
+                            ) : null}
                         </p>
                     </div>
                 </div>
@@ -165,49 +209,102 @@ export function StatsPanel({ onClose }: { onClose?: () => void }) {
             {/* 内容区域 */}
             {!isMinimized && (
                 <>
-                    {/* 标签页 */}
-                    <div
-                        className={`
-              flex gap-1 px-4 pt-3
-              border-b
-              ${isDark ? 'border-gray-800' : 'border-gray-200'}
-            `}
-                    >
-                        {tabs.map((tab) => (
+                    {/* Loading 状态 */}
+                    {isLoading && (
+                        <div className="p-8 flex flex-col items-center justify-center min-h-[200px]">
+                            <Loader2 className={`w-12 h-12 animate-spin mb-4 ${isDark ? 'text-blue-400' : 'text-blue-500'}`} />
+                            <p className={`text-sm font-medium ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
+                                正在分析仓库...
+                            </p>
+                            <p className={`text-xs mt-2 ${isDark ? 'text-gray-500' : 'text-gray-500'}`}>
+                                大型项目可能需要较长时间
+                            </p>
+                            {/* 骨架屏效果 */}
+                            <div className="w-full mt-6 space-y-3">
+                                <div className={`h-4 rounded animate-pulse ${isDark ? 'bg-gray-800' : 'bg-gray-200'}`} style={{ width: '80%' }} />
+                                <div className={`h-4 rounded animate-pulse ${isDark ? 'bg-gray-800' : 'bg-gray-200'}`} style={{ width: '60%' }} />
+                                <div className={`h-4 rounded animate-pulse ${isDark ? 'bg-gray-800' : 'bg-gray-200'}`} style={{ width: '70%' }} />
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Error 状态 */}
+                    {hasError && (
+                        <div className="p-6 flex flex-col items-center justify-center min-h-[200px]">
+                            <div className={`p-3 rounded-full mb-4 ${isDark ? 'bg-red-500/10' : 'bg-red-50'}`}>
+                                <AlertCircle className={`w-8 h-8 ${isDark ? 'text-red-400' : 'text-red-500'}`} />
+                            </div>
+                            <p className={`text-sm font-medium mb-2 ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
+                                分析失败
+                            </p>
+                            <p className={`text-xs text-center max-w-[280px] mb-4 ${isDark ? 'text-gray-500' : 'text-gray-500'}`}>
+                                {error || '发生未知错误，请重试'}
+                            </p>
                             <button
-                                key={tab.id}
-                                onClick={() => setActiveTab(tab.id)}
+                                onClick={handleRetry}
                                 className={`
-                  px-3 py-2 text-xs font-medium rounded-t-lg transition-all border-0
-                  ${activeTab === tab.id
-                                        ? isDark
-                                            ? 'bg-gray-800 text-white border-b-2 border-blue-500'
-                                            : 'bg-gray-100 text-gray-900 border-b-2 border-blue-500'
-                                        : `bg-transparent ${isDark
-                                            ? 'text-gray-500 hover:text-gray-300 hover:bg-gray-800/50'
-                                            : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'}`
+                                    flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium
+                                    transition-colors border-0 cursor-pointer
+                                    ${isDark
+                                        ? 'bg-blue-600 hover:bg-blue-500 text-white'
+                                        : 'bg-blue-500 hover:bg-blue-600 text-white'
                                     }
-                `}
+                                `}
                             >
-                                {tab.label}
+                                <RefreshCw size={14} />
+                                重新分析
                             </button>
-                        ))}
-                    </div>
+                        </div>
+                    )}
 
-                    {/* 内容 */}
-                    <div className="p-4 max-h-[500px] overflow-y-auto goloc-scrollbar">
-                        {activeTab === 'overview' && (
-                            <OverviewStats stats={result.data.stats} theme={effectiveTheme} />
-                        )}
+                    {/* 有数据时显示正常内容 */}
+                    {hasData && !isLoading && !hasError && (
+                        <>
+                            {/* 标签页 */}
+                            <div
+                                className={`
+                                    flex gap-1 px-4 pt-3
+                                    border-b
+                                    ${isDark ? 'border-gray-800' : 'border-gray-200'}
+                                `}
+                            >
+                                {tabs.map((tab) => (
+                                    <button
+                                        key={tab.id}
+                                        onClick={() => setActiveTab(tab.id)}
+                                        className={`
+                                            px-3 py-2 text-xs font-medium rounded-t-lg transition-all border-0
+                                            ${activeTab === tab.id
+                                                ? isDark
+                                                    ? 'bg-gray-800 text-white border-b-2 border-blue-500'
+                                                    : 'bg-gray-100 text-gray-900 border-b-2 border-blue-500'
+                                                : `bg-transparent ${isDark
+                                                    ? 'text-gray-500 hover:text-gray-300 hover:bg-gray-800/50'
+                                                    : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'}`
+                                            }
+                                        `}
+                                    >
+                                        {tab.label}
+                                    </button>
+                                ))}
+                            </div>
 
-                        {activeTab === 'languages' && (
-                            <LanguageStats languages={languages} theme={effectiveTheme} />
-                        )}
+                            {/* 内容 */}
+                            <div className="p-4 max-h-[500px] overflow-y-auto goloc-scrollbar">
+                                {activeTab === 'overview' && (
+                                    <OverviewStats stats={result.data.stats} theme={effectiveTheme} />
+                                )}
 
-                        {activeTab === 'tree' && (
-                            <DirectoryTree data={result.data} theme={effectiveTheme} />
-                        )}
-                    </div>
+                                {activeTab === 'languages' && (
+                                    <LanguageStats languages={languages} theme={effectiveTheme} />
+                                )}
+
+                                {activeTab === 'tree' && (
+                                    <DirectoryTree data={result.data} theme={effectiveTheme} />
+                                )}
+                            </div>
+                        </>
+                    )}
                 </>
             )}
         </div>

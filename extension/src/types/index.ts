@@ -34,6 +34,9 @@ export interface AppConfig {
     default_depth: number;
     request_timeout_seconds: number;
     max_repo_size_mb: number;
+    exclude_dirs: string[];
+    include_data_files: boolean;      // 是否统计数据文件（JSON/XML/YAML等）
+    include_documentation: boolean;   // 是否统计文档文件（Markdown/TXT等）
 }
 
 // 用户设置
@@ -63,3 +66,10 @@ export interface AnalyzeResponse {
 
 // 分析状态
 export type AnalyzeStatus = 'idle' | 'loading' | 'success' | 'error';
+
+// 统一 API 响应结构
+export interface ApiResponse<T> {
+    code: number;    // 响应状态码: 0 表示成功, 非0表示失败
+    data: T;         // 响应数据
+    message: string; // 响应消息
+}

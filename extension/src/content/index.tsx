@@ -17,7 +17,6 @@ function ContentApp() {
         panelPosition,
         setPanelPosition,
         settings,
-        status,
         panelWidth,
     } = useGoLocStore();
 
@@ -89,10 +88,11 @@ function ContentApp() {
     const handleFabClick = () => {
         if (!panelExpanded) {
             const urlMatch = window.location.pathname.match(/^\/([^/]+)\/([^/]+)/);
-            if (urlMatch && status === 'idle') {
+            if (urlMatch) {
                 const [, owner, repo] = urlMatch;
                 const branchElement = document.querySelector('[data-hotkey=\"w\"] span[data-menu-button]');
                 const branch = branchElement?.textContent?.trim() || '';
+                // 每次点击都重新分析，确保获取最新配置的结果
                 analyze(`https://github.com/${owner}/${repo}`, branch);
             }
             setPanelExpanded(true);

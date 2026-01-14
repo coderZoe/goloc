@@ -1,4 +1,4 @@
-import type { AnalyzeRequest, AppConfig, AnalyzeResponse, UserSettings } from "../types";
+import type { AnalyzeRequest, AppConfig, AnalyzeResponse, UserSettings, ApiResponse } from "../types";
 
 // Base server URL (without /api path)
 const DEFAULT_SERVER_URL = "http://localhost:8080";
@@ -25,13 +25,21 @@ async function http<T>(path: string, config?: RequestInit): Promise<T> {
     const baseUrl = await getServerUrl();
     const response = await fetch(`${baseUrl}${API_PREFIX}${path}`, config);
 
-    if (!response.ok) {
-        // 尝试读取后端返回的错误信息
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.msg || errorData.error || `请求失败: ${response.status}`);
+    // 首先尝试解析 JSON 响应
+    let responseData: ApiResponse<T>;
+    try {
+        responseData = await response.json();
+    } catch {
+        // 如果无法解析 JSON，抛出网络错误
+        throw new Error(`网络错误: ${response.status} ${response.statusText}`);
     }
 
-    return response.json();
+    // 检查后端返回的 code 字段
+    if (responseData.code !== 0) {
+        throw new Error(responseData.message || `请求失败: 错误码 ${responseData.code}`);
+    }
+
+    return responseData.data;
 }
 
 // 获取用户设置

@@ -10,7 +10,11 @@ import {
     Layers,
     CheckCircle2,
     Loader2,
-    ExternalLink
+    ExternalLink,
+    FolderX,
+    X,
+    Plus,
+    RotateCcw
 } from 'lucide-react';
 import { apiClient } from '../api/client';
 import type { UserSettings, AppConfig } from '../types';
@@ -151,12 +155,26 @@ const StatusMessage = ({ type, text }: StatusMessageProps) => (
 // Main Popup Component
 // ============================================================================
 
+// 默认排除目录列表（与后端保持一致）
+const DEFAULT_EXCLUDE_DIRS = [
+    // 包管理器依赖
+    "node_modules", "vendor", "Pods", ".venv", "venv", "env", "virtualenv",
+    "__pycache__", ".bundle", "bower_components", "jspm_packages",
+    // 版本控制
+    ".git", ".svn", ".hg",
+    // IDE 配置
+    ".idea", ".vscode", ".vs", ".eclipse",
+    // 缓存目录
+    ".cache", ".npm", ".yarn", ".gradle", ".nuget", ".pnp"
+];
+
 export function Popup() {
     const [settings, setSettings] = useState<UserSettings | null>(null);
     const [config, setConfig] = useState<AppConfig | null>(null);
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
     const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
+    const [newExcludeDir, setNewExcludeDir] = useState('');
 
     useEffect(() => {
         loadData();
@@ -259,50 +277,169 @@ export function Popup() {
 
                     {/* Server Configuration */}
                     {config ? (
-                        <FormSection title="分析参数" icon={Server} delay={100}>
-                            <div className="grid grid-cols-2 gap-4">
-                                <Input
-                                    label="缓存有效期"
-                                    icon={Clock}
-                                    type="number"
-                                    value={config.cache_ttl_seconds}
-                                    onChange={(e) => setConfig({ ...config, cache_ttl_seconds: parseInt(e.target.value) || 0 })}
-                                    suffix={formatDuration(config.cache_ttl_seconds)}
-                                    min={0}
-                                />
-                                <Input
-                                    label="请求超时"
-                                    icon={Clock}
-                                    type="number"
-                                    value={config.request_timeout_seconds}
-                                    onChange={(e) => setConfig({ ...config, request_timeout_seconds: parseInt(e.target.value) || 0 })}
-                                    suffix={formatDuration(config.request_timeout_seconds)}
-                                    min={0}
-                                />
-                            </div>
+                        <>
+                            <FormSection title="分析参数" icon={Server} delay={100}>
+                                <div className="grid grid-cols-2 gap-4">
+                                    <Input
+                                        label="缓存有效期"
+                                        icon={Clock}
+                                        type="number"
+                                        value={config.cache_ttl_seconds}
+                                        onChange={(e) => setConfig({ ...config, cache_ttl_seconds: parseInt(e.target.value) || 0 })}
+                                        suffix={formatDuration(config.cache_ttl_seconds)}
+                                        min={0}
+                                    />
+                                    <Input
+                                        label="请求超时"
+                                        icon={Clock}
+                                        type="number"
+                                        value={config.request_timeout_seconds}
+                                        onChange={(e) => setConfig({ ...config, request_timeout_seconds: parseInt(e.target.value) || 0 })}
+                                        suffix={formatDuration(config.request_timeout_seconds)}
+                                        min={0}
+                                    />
+                                </div>
 
-                            <div className="grid grid-cols-2 gap-4">
-                                <Input
-                                    label="最大仓库大小"
-                                    icon={Database}
-                                    type="number"
-                                    value={config.max_repo_size_mb}
-                                    onChange={(e) => setConfig({ ...config, max_repo_size_mb: parseInt(e.target.value) || 0 })}
-                                    suffix="MB"
-                                    min={0}
-                                    description={`约 ${formatBytes(config.max_repo_size_mb * 1024 * 1024)}`}
-                                />
-                                <Input
-                                    label="默认深度"
-                                    icon={Layers}
-                                    type="number"
-                                    value={config.default_depth}
-                                    onChange={(e) => setConfig({ ...config, default_depth: parseInt(e.target.value) || 0 })}
-                                    min={1}
-                                    max={20}
-                                />
-                            </div>
-                        </FormSection>
+                                <div className="grid grid-cols-2 gap-4">
+                                    <Input
+                                        label="最大仓库大小"
+                                        icon={Database}
+                                        type="number"
+                                        value={config.max_repo_size_mb}
+                                        onChange={(e) => setConfig({ ...config, max_repo_size_mb: parseInt(e.target.value) || 0 })}
+                                        suffix="MB"
+                                        min={0}
+                                        description={`约 ${formatBytes(config.max_repo_size_mb * 1024 * 1024)}`}
+                                    />
+                                    <Input
+                                        label="默认深度"
+                                        icon={Layers}
+                                        type="number"
+                                        value={config.default_depth}
+                                        onChange={(e) => setConfig({ ...config, default_depth: parseInt(e.target.value) || 0 })}
+                                        min={1}
+                                        max={20}
+                                    />
+                                </div>
+
+                                {/* 语言类型过滤 */}
+                                <div className="pt-3 border-t border-border/30 space-y-2">
+                                    <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-3">
+                                        统计范围
+                                    </p>
+                                    <Toggle
+                                        label="统计数据文件"
+                                        description="包含 JSON、XML、YAML、TOML 等数据/配置文件"
+                                        checked={config.include_data_files}
+                                        onChange={(checked) => setConfig({ ...config, include_data_files: checked })}
+                                    />
+                                    <Toggle
+                                        label="统计文档文件"
+                                        description="包含 Markdown、TXT、RST 等文档文件"
+                                        checked={config.include_documentation}
+                                        onChange={(checked) => setConfig({ ...config, include_documentation: checked })}
+                                    />
+                                </div>
+                            </FormSection>
+
+                            {/* 排除目录配置 */}
+                            <FormSection title="排除目录" icon={FolderX} delay={150}>
+                                <div className="space-y-3">
+                                    <p className="text-xs text-muted-foreground">
+                                        这些目录将不会被统计。通常包括依赖、缓存、IDE配置等。
+                                    </p>
+
+                                    {/* 缓存失效提醒 */}
+                                    <div className="flex items-start gap-2 px-3 py-2 bg-amber-500/10 border border-amber-500/20 rounded-lg">
+                                        <AlertCircle size={14} className="text-amber-500 mt-0.5 flex-shrink-0" />
+                                        <p className="text-xs text-amber-600 dark:text-amber-400">
+                                            修改排除目录后，已缓存的分析结果将失效，下次分析会重新获取数据。
+                                        </p>
+                                    </div>
+
+                                    {/* 目录标签列表 */}
+                                    <div className="flex flex-wrap gap-2 max-h-32 overflow-y-auto p-2 bg-muted/20 rounded-xl border border-border/50">
+                                        {config.exclude_dirs && config.exclude_dirs.length > 0 ? (
+                                            config.exclude_dirs.map((dir) => (
+                                                <span
+                                                    key={dir}
+                                                    className="inline-flex items-center gap-1 px-2.5 py-1 bg-muted rounded-lg text-xs font-medium text-foreground group hover:bg-destructive/10 hover:text-destructive goloc-transition"
+                                                >
+                                                    {dir}
+                                                    <button
+                                                        onClick={() => {
+                                                            setConfig({
+                                                                ...config,
+                                                                exclude_dirs: config.exclude_dirs.filter(d => d !== dir)
+                                                            });
+                                                        }}
+                                                        className="p-0.5 rounded hover:bg-destructive/20 goloc-transition"
+                                                        title={`移除 ${dir}`}
+                                                    >
+                                                        <X size={12} />
+                                                    </button>
+                                                </span>
+                                            ))
+                                        ) : (
+                                            <span className="text-xs text-muted-foreground italic">暂无排除目录</span>
+                                        )}
+                                    </div>
+
+                                    {/* 添加新目录 */}
+                                    <div className="flex gap-2">
+                                        <input
+                                            type="text"
+                                            value={newExcludeDir}
+                                            onChange={(e) => setNewExcludeDir(e.target.value)}
+                                            onKeyDown={(e) => {
+                                                if (e.key === 'Enter' && newExcludeDir.trim()) {
+                                                    const trimmed = newExcludeDir.trim();
+                                                    if (!config.exclude_dirs.includes(trimmed)) {
+                                                        setConfig({
+                                                            ...config,
+                                                            exclude_dirs: [...config.exclude_dirs, trimmed]
+                                                        });
+                                                    }
+                                                    setNewExcludeDir('');
+                                                }
+                                            }}
+                                            placeholder="输入目录名，按回车添加..."
+                                            className="flex-1 px-3 py-2 bg-muted/30 border border-border rounded-lg text-sm text-foreground goloc-transition goloc-focus-ring hover:bg-muted/50 focus:bg-card focus:border-primary"
+                                        />
+                                        <button
+                                            onClick={() => {
+                                                const trimmed = newExcludeDir.trim();
+                                                if (trimmed && !config.exclude_dirs.includes(trimmed)) {
+                                                    setConfig({
+                                                        ...config,
+                                                        exclude_dirs: [...config.exclude_dirs, trimmed]
+                                                    });
+                                                    setNewExcludeDir('');
+                                                }
+                                            }}
+                                            disabled={!newExcludeDir.trim()}
+                                            className="px-3 py-2 bg-primary/10 text-primary rounded-lg text-sm font-medium goloc-transition hover:bg-primary/20 disabled:opacity-50 disabled:cursor-not-allowed"
+                                        >
+                                            <Plus size={16} />
+                                        </button>
+                                    </div>
+
+                                    {/* 重置为默认 */}
+                                    <button
+                                        onClick={() => {
+                                            setConfig({
+                                                ...config,
+                                                exclude_dirs: [...DEFAULT_EXCLUDE_DIRS]
+                                            });
+                                        }}
+                                        className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-primary goloc-transition"
+                                    >
+                                        <RotateCcw size={12} />
+                                        重置为默认列表
+                                    </button>
+                                </div>
+                            </FormSection>
+                        </>
                     ) : (
                         <div
                             className="bg-destructive/5 border border-destructive/15 rounded-2xl p-5 flex gap-4 animate-popup-fade-in opacity-0"
@@ -348,6 +485,6 @@ export function Popup() {
                     </div>
                 </div>
             </div>
-        </div>
+        </div >
     );
 }
