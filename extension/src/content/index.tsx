@@ -90,8 +90,20 @@ function ContentApp() {
             const urlMatch = window.location.pathname.match(/^\/([^/]+)\/([^/]+)/);
             if (urlMatch) {
                 const [, owner, repo] = urlMatch;
-                const branchElement = document.querySelector('[data-hotkey=\"w\"] span[data-menu-button]');
-                const branch = branchElement?.textContent?.trim() || '';
+
+                // 优先从 URL 路径解析分支
+                // URL 格式: /owner/repo/tree/branchName 或 /owner/repo/blob/branchName/...
+                let branch = '';
+                const branchMatch = window.location.pathname.match(/^\/[^/]+\/[^/]+\/(tree|blob|commits|compare)\/([^/]+)/);
+                if (branchMatch) {
+                    branch = decodeURIComponent(branchMatch[2]);
+                } else {
+                    // 如果 URL 中没有分支信息，尝试从页面元素获取
+                    const branchElement = document.querySelector('[data-hotkey="w"] span[data-menu-button]');
+                    branch = branchElement?.textContent?.trim() || '';
+                }
+
+                console.log('[GoLoc] Analyzing:', { owner, repo, branch, url: window.location.pathname });
                 // 每次点击都重新分析，确保获取最新配置的结果
                 analyze(`https://github.com/${owner}/${repo}`, branch);
             }
