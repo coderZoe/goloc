@@ -1,0 +1,41 @@
+version: '3.8'
+
+services:
+  goloc:
+    build:
+      context: ./server
+      dockerfile: Dockerfile
+    # 或使用预构建镜像：
+    # image: ghcr.io/coderzoe/goloc:latest
+    container_name: goloc
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    environment:
+      # GitHub Personal Access Token（可选，用于私有仓库和提高 API 限制）
+      # GitHub Token (optional, for private repos and higher rate limits)
+      - GITHUB_TOKEN=${GITHUB_TOKEN:-}
+      
+      # 缓存有效期（秒），默认 7 天
+      # Cache TTL in seconds, default 7 days
+      - CACHE_TTL=${CACHE_TTL:-604800}
+      
+      # 最大仓库大小限制（MB）
+      # Max repository size limit in MB
+      - MAX_REPO_SIZE_MB=${MAX_REPO_SIZE_MB:-100}
+      
+      # HTTP/HTTPS 代理（可选，用于访问 GitHub）
+      # HTTP/HTTPS Proxy (optional, for accessing GitHub)
+      - HTTP_PROXY=${HTTP_PROXY:-}
+      - HTTPS_PROXY=${HTTPS_PROXY:-}
+      - http_proxy=${http_proxy:-}
+      - https_proxy=${https_proxy:-}
+      # 不走代理的地址
+      - NO_PROXY=${NO_PROXY:-localhost,127.0.0.1}
+      - no_proxy=${no_proxy:-localhost,127.0.0.1}
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:8080/api/config"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s

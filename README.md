@@ -160,6 +160,9 @@ npm run build
 | `GITHUB_TOKEN` | GitHub Personal Access Token（可选，用于私有仓库和提高 API 限制） | - |
 | `CACHE_TTL` | 缓存有效期（秒） | `604800` (7天) |
 | `MAX_REPO_SIZE_MB` | 最大仓库大小限制（MB） | `100` |
+| `HTTP_PROXY` / `http_proxy` | HTTP 代理地址（可选，用于访问 GitHub） | - |
+| `HTTPS_PROXY` / `https_proxy` | HTTPS 代理地址（可选，用于访问 GitHub） | - |
+| `NO_PROXY` / `no_proxy` | 不走代理的地址列表 | `localhost,127.0.0.1` |
 
 #### 扩展设置
 
@@ -327,6 +330,9 @@ After building, the `extension/dist` directory is the loadable Chrome extension.
 | `GITHUB_TOKEN` | GitHub Personal Access Token (optional, for private repos and higher rate limits) | - |
 | `CACHE_TTL` | Cache duration in seconds | `604800` (7 days) |
 | `MAX_REPO_SIZE_MB` | Maximum repository size limit in MB | `100` |
+| `HTTP_PROXY` / `http_proxy` | HTTP proxy URL (optional, for accessing GitHub) | - |
+| `HTTPS_PROXY` / `https_proxy` | HTTPS proxy URL (optional, for accessing GitHub) | - |
+| `NO_PROXY` / `no_proxy` | Addresses to bypass proxy | `localhost,127.0.0.1` |
 
 #### Extension Settings
 
