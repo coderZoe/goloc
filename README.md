@@ -28,19 +28,27 @@ GoLoc 是一个强大的 GitHub 仓库代码统计分析工具，由 **后端服
 
 - 🚀 **快速分析** - 使用 Go 语言构建的高性能后端，秒级完成仓库分析
 - 📊 **多维统计** - 代码行数、注释行数、空行数、总行数等多维度统计
-- 🌳 **目录树视图** - 直观展示仓库文件结构及各目录/文件的代码统计
+- 🌳 **目录树视图** - 直观展示仓库文件结构及各目录/文件的代码统计，支持自定义展示深度
 - 🎨 **语言识别** - 自动识别 150+ 编程语言，配有对应语言图标和颜色
 - 🌓 **主题切换** - 统计面板支持浅色/深色/跟随系统主题
 - 💾 **智能缓存** - 内置缓存机制，避免重复分析，响应更快
-- ⚙️ **可配置** - 支持调整缓存时间、分析超时、最大仓库大小等参数
+- 🚫 **目录排除** - 自动排除 `node_modules`、`vendor`、`.git` 等常见依赖目录，支持自定义
+- 📁 **文件过滤** - 可选择是否统计数据文件（JSON/XML/YAML）和文档文件（Markdown/TXT）
+- ⚙️ **可配置** - 支持调整缓存时间、分析超时、最大仓库大小、展示深度等参数
 
 ### 🖼️ 截图预览
 
-![image-20260113175220494](img/image-20260113175220494.png)
+![image-20260115105714025](img/image-20260115105714025.png)
 
-![image-20260113175244683](img/image-20260113175244683.png)
+![image-20260115105754235](img/image-20260115105754235.png)
 
-![image-20260113175302286](img/image-20260113175302286.png)
+![image-20260115105410975](img/image-20260115105410975.png)
+
+![image-20260115105459491](img/image-20260115105459491.png)
+
+![image-20260115105530445](img/image-20260115105530445.png)
+
+![image-20260115105610730](img/image-20260115105610730.png)
 
 
 ### 🛠️ 技术栈
@@ -69,9 +77,6 @@ GoLoc 是一个强大的 GitHub 仓库代码统计分析工具，由 **后端服
 docker run -d \
   --name goloc \
   -p 8080:8080 \
-  -e GITHUB_TOKEN=your_github_token \
-  -e CACHE_TTL=604800 \
-  -e MAX_REPO_SIZE_MB=100 \
   ghcr.io/coderzoe/goloc:latest
 ```
 
@@ -92,9 +97,9 @@ services:
     environment:
       # GitHub Token（可选，用于提高 API 限制）
       - GITHUB_TOKEN=${GITHUB_TOKEN:-}
-      # 缓存有效期（秒），默认 7 天
+      # 缓存有效期（秒），可选，默认 7 天
       - CACHE_TTL=604800
-      # 最大仓库大小限制（MB）
+      # 最大仓库大小限制（MB） 可选 默认100MB
       - MAX_REPO_SIZE_MB=100
 ```
 
@@ -174,6 +179,9 @@ npm run build
 - **请求超时** - 分析请求超时时间
 - **最大仓库大小** - 限制可分析的仓库大小
 - **默认深度** - 目录树展示深度
+- **排除目录** - 配置不统计的目录，如 `node_modules`、`vendor`、`.git` 等
+- **统计数据文件** - 是否统计 JSON、XML、YAML 等数据文件
+- **统计文档文件** - 是否统计 Markdown、TXT 等文档文件
 
 ---
 
@@ -199,19 +207,27 @@ GoLoc is a powerful GitHub repository code statistics analyzer, consisting of a 
 
 - 🚀 **Fast Analysis** - High-performance backend built with Go, completes analysis in seconds
 - 📊 **Multi-dimensional Statistics** - Lines of code, comments, blanks, total lines, and more
-- 🌳 **Directory Tree View** - Intuitive display of repository structure with per-file/folder statistics
+- 🌳 **Directory Tree View** - Intuitive display of repository structure with per-file/folder statistics, customizable depth
 - 🎨 **Language Recognition** - Auto-detects 150+ programming languages with corresponding icons and colors
 - 🌓 **Theme Switching** - Stats panel supports light/dark/system themes
 - 💾 **Smart Caching** - Built-in caching mechanism for faster repeated access
-- ⚙️ **Configurable** - Adjustable cache duration, timeout, max repo size, and more
+- 🚫 **Directory Exclusion** - Auto-excludes `node_modules`, `vendor`, `.git` and common dependency directories, customizable
+- 📁 **File Filtering** - Optional inclusion of data files (JSON/XML/YAML) and documentation files (Markdown/TXT)
+- ⚙️ **Configurable** - Adjustable cache duration, timeout, max repo size, display depth, and more
 
 ### 🖼️ Screenshots
 
-![image-20260113175220494](img/image-20260113175220494.png)
+![image-20260115105714025](img/image-20260115105714025.png)
 
-![image-20260113175244683](img/image-20260113175244683.png)
+![image-20260115105754235](img/image-20260115105754235.png)
 
-![image-20260113175302286](img/image-20260113175302286.png)
+![image-20260115105410975](img/image-20260115105410975.png)
+
+![image-20260115105459491](img/image-20260115105459491.png)
+
+![image-20260115105530445](img/image-20260115105530445.png)
+
+![image-20260115105610730](img/image-20260115105610730.png)
 
 ### 🛠️ Tech Stack
 
@@ -239,9 +255,6 @@ GoLoc is a powerful GitHub repository code statistics analyzer, consisting of a 
 docker run -d \
   --name goloc \
   -p 8080:8080 \
-  -e GITHUB_TOKEN=your_github_token \
-  -e CACHE_TTL=604800 \
-  -e MAX_REPO_SIZE_MB=100 \
   ghcr.io/coderzoe/goloc:latest
 ```
 
@@ -262,9 +275,9 @@ services:
     environment:
       # GitHub Token (optional, for higher API rate limits)
       - GITHUB_TOKEN=${GITHUB_TOKEN:-}
-      # Cache TTL in seconds, default 7 days
+      # Cache TTL in seconds (optional, default 7 days)
       - CACHE_TTL=604800
-      # Max repository size limit in MB
+      # Max repository size limit in MB (optional, default 100MB)
       - MAX_REPO_SIZE_MB=100
 ```
 
@@ -344,6 +357,9 @@ Click the extension icon to open settings:
 - **Request Timeout** - Analysis request timeout
 - **Max Repo Size** - Limit the size of repositories that can be analyzed
 - **Default Depth** - Directory tree display depth
+- **Exclude Directories** - Directories to exclude from statistics, e.g., `node_modules`, `vendor`, `.git`
+- **Include Data Files** - Whether to count JSON, XML, YAML and other data files
+- **Include Documentation** - Whether to count Markdown, TXT and other documentation files
 
 ---
 
