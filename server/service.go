@@ -126,6 +126,7 @@ func FetchRepoStats(ctx context.Context, repoURL string, branch string) ([]FileS
 }
 
 // cloneRepo clones a repository with the specified branch
+// Automatically uses HTTP_PROXY/HTTPS_PROXY from environment if set
 func cloneRepo(ctx context.Context, repoURL string, branch string, tmpDir string) error {
 	args := []string{"clone", "--depth=1", "--single-branch"}
 	if branch != "" {
@@ -133,9 +134,23 @@ func cloneRepo(ctx context.Context, repoURL string, branch string, tmpDir string
 	}
 	args = append(args, repoURL, tmpDir)
 
+	// Log proxy settings if present
+	if proxy := os.Getenv("HTTPS_PROXY"); proxy != "" {
+		fmt.Printf("[Process] Using HTTPS_PROXY: %s\n", proxy)
+	} else if proxy := os.Getenv("https_proxy"); proxy != "" {
+		fmt.Printf("[Process] Using https_proxy: %s\n", proxy)
+	} else if proxy := os.Getenv("HTTP_PROXY"); proxy != "" {
+		fmt.Printf("[Process] Using HTTP_PROXY: %s\n", proxy)
+	} else if proxy := os.Getenv("http_proxy"); proxy != "" {
+		fmt.Printf("[Process] Using http_proxy: %s\n", proxy)
+	}
+
 	fmt.Printf("[Process] Cloning %s (branch: %s) to %s...\n", repoURL, branch, tmpDir)
 
 	cmd := exec.CommandContext(ctx, "git", args...)
+	// Inherit all environment variables (includes HTTP_PROXY, HTTPS_PROXY, etc.)
+	cmd.Env = os.Environ()
+
 	out, err := cmd.CombinedOutput()
 	if err != nil {
 		return fmt.Errorf("git clone failed: %s, output: %s", err, strings.TrimSpace(string(out)))
