@@ -1,13 +1,17 @@
 {
     "manifest_version": 3,
     "name": "GoLoc - GitHub Code Counter",
-    "version": "1.0.0",
+    "version": "1.0.1",
     "description": "Analyze GitHub repository code statistics with beautiful visualizations",
     "icons": {
         "16": "icons/icon16.png",
         "32": "icons/icon32.png",
         "48": "icons/icon48.png",
         "128": "icons/icon128.png"
+    },
+    "background": {
+        "service_worker": "src/background/index.ts",
+        "type": "module"
     },
     "action": {
         "default_popup": "popup.html",
@@ -43,7 +47,7 @@
         "storage"
     ],
     "host_permissions": [
-        "http://localhost:8080/*",
-        "https://api.github.com/*"
+        "http://*/*",
+        "https://*/*"
     ]
 }

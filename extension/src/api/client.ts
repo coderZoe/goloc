@@ -20,18 +20,57 @@ async function getServerUrl(): Promise<string> {
     }
 }
 
+// 检测是否在 Content Script 环境中
+function isContentScript(): boolean {
+    return typeof chrome !== 'undefined' &&
+        typeof chrome.runtime !== 'undefined' &&
+        typeof chrome.runtime.sendMessage === 'function' &&
+        typeof window !== 'undefined' &&
+        window.location.protocol === 'https:' &&
+        !window.location.href.startsWith('chrome-extension://');
+}
+
+// 通过 Background Script 代理 fetch 请求
+async function proxyFetch(url: string, config?: RequestInit): Promise<{ ok: boolean; status: number; data: any }> {
+    return new Promise((resolve, reject) => {
+        chrome.runtime.sendMessage(
+            { type: 'FETCH_REQUEST', url, options: config },
+            (response) => {
+                if (chrome.runtime.lastError) {
+                    reject(new Error(chrome.runtime.lastError.message));
+                } else if (response?.error) {
+                    reject(new Error(response.error));
+                } else {
+                    resolve(response);
+                }
+            }
+        );
+    });
+}
+
 // 封装通用的 fetch 处理，统一处理 JSON 和 错误
 async function http<T>(path: string, config?: RequestInit): Promise<T> {
     const baseUrl = await getServerUrl();
-    const response = await fetch(`${baseUrl}${API_PREFIX}${path}`, config);
+    const fullUrl = `${baseUrl}${API_PREFIX}${path}`;
 
-    // 首先尝试解析 JSON 响应
     let responseData: ApiResponse<T>;
-    try {
-        responseData = await response.json();
-    } catch {
-        // 如果无法解析 JSON，抛出网络错误
-        throw new Error(`网络错误: ${response.status} ${response.statusText}`);
+
+    // 如果在 Content Script 中，通过 Background Script 代理请求
+    if (isContentScript()) {
+        console.log('[Client] Using background proxy for:', fullUrl);
+        const proxyResult = await proxyFetch(fullUrl, config);
+        if (!proxyResult.ok) {
+            throw new Error(`请求失败: ${proxyResult.status}`);
+        }
+        responseData = proxyResult.data;
+    } else {
+        // Popup 或其他扩展页面，直接 fetch
+        const response = await fetch(fullUrl, config);
+        try {
+            responseData = await response.json();
+        } catch {
+            throw new Error(`网络错误: ${response.status} ${response.statusText}`);
+        }
     }
 
     // 检查后端返回的 code 字段
