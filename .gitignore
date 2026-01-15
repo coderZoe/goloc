@@ -8,6 +8,14 @@ main
 goloc
 GoLoc
 
+# Cross-platform release binaries
+goloc-linux-*
+goloc-darwin-*
+goloc-windows-*
+
+# Release zip files
+goloc-extension-*.zip
+
 # Temporary repo directories for analysis
 temp_repos/
 /tmp/

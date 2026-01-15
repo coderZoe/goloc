@@ -4,7 +4,6 @@ import { X, ChevronDown, ChevronUp, Sun, Moon, Github, Loader2, AlertCircle, Ref
 import { OverviewStats } from './OverviewStats';
 import { LanguageStats } from './LanguageStats';
 import { DirectoryTree } from './DirectoryTree';
-import { calculateLanguageStats } from '../utils/stats';
 
 export function StatsPanel({ onClose }: { onClose?: () => void }) {
     const {
@@ -70,8 +69,8 @@ export function StatsPanel({ onClose }: { onClose?: () => void }) {
     const hasError = status === 'error';
     const hasData = result !== null;
 
-    // 计算语言统计（只在有数据时）
-    const languages = hasData ? calculateLanguageStats(result.data) : [];
+    // 使用后端返回的完整语言统计（不受深度限制）
+    const languages = hasData ? result.languages : [];
 
     const tabs = [
         { id: 'overview' as const, label: '概览' },

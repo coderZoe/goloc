@@ -15,6 +15,17 @@ type Summary struct {
 	Blanks   int `json:"blanks"`
 }
 
+// LanguageStat 语言统计
+type LanguageStat struct {
+	Language   string  `json:"language"`
+	Files      int     `json:"files"`
+	Lines      int     `json:"lines"`
+	Code       int     `json:"code"`
+	Comments   int     `json:"comments"`
+	Blanks     int     `json:"blanks"`
+	Percentage float64 `json:"percentage"`
+}
+
 type Node struct {
 	Name     string           `json:"name"`
 	Type     string           `json:"type"`
@@ -33,9 +44,10 @@ type Response struct {
 
 // AnalyzeResult 分析结果数据结构
 type AnalyzeResult struct {
-	Source    string `json:"source"`
-	Repo      string `json:"repo"`
-	Branch    string `json:"branch"`
-	Timestamp int64  `json:"timestamp"`
-	Data      *Node  `json:"data"`
+	Source    string         `json:"source"`
+	Repo      string         `json:"repo"`
+	Branch    string         `json:"branch"`
+	Timestamp int64          `json:"timestamp"`
+	Data      *Node          `json:"data"`
+	Languages []LanguageStat `json:"languages"` // 完整的语言统计（不受深度限制）
 }

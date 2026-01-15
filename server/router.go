@@ -168,12 +168,16 @@ func handleAnalyze(w http.ResponseWriter, r *http.Request) {
 	projectName := extractProjectName(req.RepoURL)
 	treeRoot := BuildTree(filteredFiles, depth, projectName)
 
+	// 计算完整的语言统计（基于所有过滤后的文件，不受深度限制）
+	languages := CalculateLanguageStats(filteredFiles)
+
 	result := AnalyzeResult{
 		Source:    source,
 		Repo:      req.RepoURL,
 		Branch:    req.Branch,
 		Timestamp: time.Now().Unix(),
 		Data:      treeRoot,
+		Languages: languages,
 	}
 
 	json.NewEncoder(w).Encode(Response{

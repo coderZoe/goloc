@@ -62,6 +62,7 @@ export interface AnalyzeResponse {
     branch: string;
     timestamp: number;
     data: TreeNode;
+    languages: LanguageStat[]; // 完整的语言统计（不受深度限制）
 }
 
 // 分析状态
